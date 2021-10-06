@@ -1,12 +1,15 @@
 import madgraph.iolibs.export_cpp as export_cpp
 import aloha.aloha_writers as aloha_writers
-
-import os
+from madgraph import MG5DIR
+import fractions
+import os,logging
 pjoin = os.path.join
+
+logger = logging.getLogger('output_kokkos.model_handling')
 
 class ALOHAWriterForGPU(aloha_writers.ALOHAWriterForGPU):
     
-    extension = '.cpp'
+    extension = '.cc'
     prefix ='KOKKOS_FUNCTION'
     realoperator = '.real()'
     imagoperator = '.imag()'
@@ -26,7 +29,7 @@ class ALOHAWriterForGPU(aloha_writers.ALOHAWriterForGPU):
 class UFOModelConverterKokkos(export_cpp.UFOModelConverterCPP):
     
     #aloha_writer = 'cudac'
-    cc_ext = 'cpp'
+    cc_ext = 'cc'
         # Template files to use
     #include_dir = '.'
     #c_file_dir = '.'
@@ -101,13 +104,13 @@ class GPUFOHelasCallWriter(helas_call_writers.GPUFOHelasCallWriter):
         return super().generate_helas_call(argument)
 
 
-class OneProcessExporterKokkos(OneProcessExporterCPP):
+class OneProcessExporterKokkos(export_cpp.OneProcessExporterCPP):
 
     # Static variables (for inheritance)
     process_dir = '.'
     include_dir = '.'
-    template_path = os.path.join(_file_path, 'iolibs', 'template_files')
-    __template_path = os.path.join(_file_path, 'iolibs', 'template_files') 
+    template_path = pjoin(os.path.dirname(export_cpp.__file__),'template_files')
+    __template_path = pjoin(os.path.dirname(export_cpp.__file__),'template_files') 
     process_template_h = 'kokkos/process_h.inc'
     process_template_cc = 'kokkos/process_cc.inc'
     process_class_template = 'kokkos/process_class.inc'
@@ -115,16 +118,16 @@ class OneProcessExporterKokkos(OneProcessExporterCPP):
     process_wavefunction_template = 'cpp_process_wavefunctions.inc'
     process_sigmaKin_function_template = 'kokkos/process_sigmaKin_function.inc'
     single_process_template = 'kokkos/process_matrix.inc'
-    cc_ext = 'cpp'
+    cc_ext = 'cc'
 
     def __init__(self, *args, **opts):
         
-        super(OneProcessExporterGPU, self).__init__(*args, **opts)
+        super(OneProcessExporterKokkos, self).__init__(*args, **opts)
         self.process_class = "CPPProcess"
 
     def generate_process_files(self):
         
-        super(OneProcessExporterGPU, self).generate_process_files()
+        super(OneProcessExporterKokkos, self).generate_process_files()
 
         self.edit_check()
         self.edit_mgConfig()
@@ -220,7 +223,7 @@ class OneProcessExporterKokkos(OneProcessExporterCPP):
     def get_process_function_definitions(self, write=True):
         """The complete Pythia 8 class definition for the process"""
 
-        replace_dict = super(OneProcessExporterGPU,self).get_process_function_definitions(write=False)
+        replace_dict = super(OneProcessExporterKokkos,self).get_process_function_definitions(write=False)
 
 
         replace_dict['ncouplings'] = len(self.couplings2order)
@@ -252,7 +255,7 @@ class OneProcessExporterKokkos(OneProcessExporterCPP):
 
     def get_process_class_definitions(self, write=True):
         
-        replace_dict = super(OneProcessExporterGPU,self).get_process_class_definitions(write=False)
+        replace_dict = super(OneProcessExporterKokkos,self).get_process_class_definitions(write=False)
 
         replace_dict['nwavefuncs'] = replace_dict['wfct_size']
         replace_dict['namp'] = len(self.amplitudes.get_all_amplitudes())
@@ -363,7 +366,7 @@ class OneProcessExporterKokkos(OneProcessExporterCPP):
     def write_process_h_file(self, writer):
         """Write the class definition (.h) file for the process"""
         
-        replace_dict = super(OneProcessExporterGPU, self).write_process_h_file(False)
+        replace_dict = super(OneProcessExporterKokkos, self).write_process_h_file(False)
         try:
             replace_dict['helamps_h'] = open(pjoin(self.path, os.pardir, os.pardir,'src','HelAmps_%s.h' % self.model_name)).read()
         except FileNotFoundError:
@@ -381,11 +384,11 @@ class OneProcessExporterKokkos(OneProcessExporterCPP):
         described by matrix_element"""
         
                 
-        replace_dict = super(OneProcessExporterGPU, self).write_process_cc_file(False)
-        #try:
-        #    replace_dict['hel_amps_def'] = open(pjoin(self.path, os.pardir, os.pardir,'src','HelAmps_%s.cu' % self.model_name)).read()
-        #except FileNotFoundError:
-        replace_dict['hel_amps_def'] = "\n#include \"../../src/HelAmps_%s.cpp\"" % self.model_name
+        replace_dict = super(OneProcessExporterKokkos, self).write_process_cc_file(False)
+        try:
+           replace_dict['hel_amps_def'] = open(pjoin(self.path, os.pardir, os.pardir,'src','HelAmps_%s.cc' % self.model_name)).read()
+        except FileNotFoundError:
+            replace_dict['hel_amps_def'] = "\n#include \"../../src/HelAmps_%s.cc\"" % self.model_name
             
         if writer:
             file = self.read_template_file(self.process_template_cc) % replace_dict

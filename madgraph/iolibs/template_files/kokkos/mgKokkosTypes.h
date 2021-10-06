@@ -1,7 +1,7 @@
 #ifndef MGKOKKOSTYPES_H
 #define MGKOKKOSTYPES_H 1
 
-#include "mgOnGpuConfig.h"
+#include "mgKokkosConfig.h"
 
 namespace mgKokkos
 {

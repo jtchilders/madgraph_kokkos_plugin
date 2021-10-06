@@ -32,9 +32,9 @@ HIP_CXXFLAGS=$(CXXFLAGS) -I$(KOKKOSPATH_HIP)/include -fopenmp -fno-gpu-rdc --amd
 HIP_LDFLAGS=$(LDFLAGS) -L $(KOKKOSPATH_HIP)/lib64  -lkokkoscore -ldl -fopenmp 
 
 cuda_exe=ccheck.exe
-cuda_obj=ccheck_sa.o
+cuda_obj=ccheck.o
 openmp_exe=ocheck.exe
-openmp_obj=ocheck_sa.o
+openmp_obj=ocheck.o
 intel_exe=icheck.exe
 intel_obj=icheck.o
 hip_exe=hcheck.exe
@@ -47,10 +47,10 @@ all: cuda openmp intel hip
 
 
 cuda:
-	make -C ../../src
+	make -C ../../src cuda
 	make $(cuda_exe)
 openmp: 
-	make -C ../../src
+	make -C ../../src openmp
 	make $(openmp_exe)
 intel:
 	make -C ../../src intel
@@ -59,25 +59,25 @@ hip:
 	make -C ../../src hip
 	make $(hip_exe)
 
-$(cuda_obj): check_sa.cpp ../../src/rambo.h ../../src/random_generator.h CPPProcess.h
+$(cuda_obj): check.cpp ../../src/rambo.h ../../src/random_generator.h CPPProcess.h
 	$(NVCC) -c $< -o $@ $(CUDA_CXXFLAGS) $(CUDA_COMPLEX)
 
 $(cuda_exe): $(cuda_obj) $(libmodel)
 	$(NVCC)  $(cuda_obj) -o $@ $(CUDA_LDFLAGS) $(libmodel)
 
-$(openmp_obj): check_sa.cpp ../../src/rambo.h ../../src/random_generator.h CPPProcess.h
+$(openmp_obj): check.cpp ../../src/rambo.h ../../src/random_generator.h CPPProcess.h
 	$(CXX) -c $< -o $@ $(OPENMP_CXXFLAGS)
 
 $(openmp_exe): $(openmp_obj) $(libmodel)
 	$(CXX) $(openmp_obj) -o $@ $(OPENMP_LDFLAGS) $(libmodel)
 
-$(intel_obj): check_sa.cpp ../../src/rambo.h ../../src/random_generator.h CPPProcess.h
+$(intel_obj): check.cpp ../../src/rambo.h ../../src/random_generator.h CPPProcess.h
 	$(IPCX) -c $< -o $@ $(INTEL_CXXFLAGS)
 
 $(intel_exe): $(intel_obj) $(intel_libmodel)
 	$(IPCX) $(intel_obj) -o $@ $(INTEL_LDFLAGS) $(intel_libmodel)
 
-$(hip_obj): check_sa.cpp ../../src/rambo.h ../../src/random_generator.h CPPProcess.h
+$(hip_obj): check.cpp ../../src/rambo.h ../../src/random_generator.h CPPProcess.h
 	$(HIPCC) -c $< -o $@ $(HIP_CXXFLAGS)
 
 $(hip_exe): $(hip_obj) $(hip_libmodel)

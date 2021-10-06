@@ -1,7 +1,7 @@
 import madgraph.iolibs.export_cpp as export_cpp
 import madgraph.various.misc as misc
 from madgraph import MG5DIR
-import model_handling
+import PLUGIN.output_kokkos.model_handling as model_handling
 import os
 pjoin = os.path.join
 
@@ -69,7 +69,6 @@ class MY_CPP_Standalone(export_cpp.ProcessExporterGPU):
     def copy_template(self, model):
 
         misc.sprint("initialise the directory")
-        print('model: ',model)
         return super(MY_CPP_Standalone, self).copy_template(model)
 
 
