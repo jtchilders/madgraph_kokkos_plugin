@@ -8,9 +8,8 @@
 
 #include <algorithm>
 #include <iostream>
-#include "mgOnGpuTypes.h"
-#include "mgOnGpuConfig.h"
+#include "mgKokkosTypes.h"
+#include "mgKokkosConfig.h"
 
-#include "gCPPProcess.h"
+#include "CPPProcess.h"
 
-%(process_function_definitions)s

@@ -11,12 +11,9 @@
 
 #include "mgKokkosTypes.h"
 
-mgDebugDeclare();
-
-namespace MG5_sm
-{
+namespace  %(namespace)s_%(model_name)s {
 
 %(function_definitions)s
 
-} // end namespace $(namespace)s_%(model_name)s
+} // end namespace %(namespace)s_%(model_name)s
 

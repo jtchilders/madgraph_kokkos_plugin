@@ -2,161 +2,120 @@
 // Class member functions for calculating the matrix elements for
 %(process_lines)s
 
-#ifdef __CUDACC__
-namespace gProc
-#else
-namespace Proc
-#endif
-{
-
-  using mgOnGpu::np4; // 4: the dimension of 4-momenta (E,px,py,pz)
-  using mgOnGpu::npar; // number of particles in total (initial + final)
-  using mgOnGpu::ncomb; // number of helicity combinations
-
-#ifdef __CUDACC__
-  __device__ __constant__ int cHel[ncomb][npar];
-  __device__ __constant__ fptype cIPC[%(ncouplingstimes2)i];
-  __device__ __constant__ fptype cIPD[%(nparams)i];
-  __device__ __constant__ int cNGoodHel[1];
-  __device__ __constant__ int cGoodHel[ncomb];
-#else
-  static int cHel[ncomb][npar];
-  static fptype cIPC[%(ncouplingstimes2)i];
-  static fptype cIPD[%(nparams)i];
-#endif
-
-  //--------------------------------------------------------------------------
-  using mgOnGpu::nwf;
-  using mgOnGpu::nw6;
-  //--------------------------------------------------------------------------
+using mgKokkos::ncomb; // number of helicity combinations
+//--------------------------------------------------------------------------
 
 // Evaluate |M|^2 for each subprocess
 // NB: calculate_wavefunctions ADDS |M|^2 for a given ihel to the running sum of |M|^2 over helicities for the given event
 
+
 %(all_sigmaKin)s
 
-
-CPPProcess::CPPProcess(int numiterations, int gpublocks, int gputhreads,
-                       bool verbose, bool debug)
-    : m_numiterations(numiterations), gpu_nblocks(gpublocks),
-      gpu_nthreads(gputhreads), m_verbose(verbose),
-      dim(gpu_nblocks * gpu_nthreads) {
-
-
-  // Helicities for the process - nodim
-  %(all_helicities)s
-#ifdef __CUDACC__
-    checkCuda( cudaMemcpyToSymbol( cHel, tHel, ncomb * nexternal * sizeof(int) ) );
-#else
-    memcpy( cHel, tHel, ncomb * nexternal * sizeof(int) );
-#endif
-
-    // SANITY CHECK: GPU memory usage may be based on casts of fptype[2] to cxtype
-    assert( sizeof(cxtype) == 2*sizeof(fptype) );
-}
-
-CPPProcess::~CPPProcess() {}
-
-const std::vector<fptype> &CPPProcess::getMasses() const { return mME; }
-
-//--------------------------------------------------------------------------
-// Initialize process. 
-  
-void CPPProcess::initProc(string param_card_name) {
-// Instantiate the model class and set parameters that stay fixed during run
-    pars = Parameters_%(model_name)s::getInstance();
-    SLHAReader slha(param_card_name, m_verbose);
-    pars->setIndependentParameters(slha);
-    pars->setIndependentCouplings();
-    if (m_verbose) {
-        pars->printIndependentParameters();
-    	pars->printIndependentCouplings();
-    }
-    pars->setDependentParameters();
-    pars->setDependentCouplings();
-    %(initProc_lines)s
-
-    %(assign_coupling)s
-#ifdef __CUDACC__
-    checkCuda(cudaMemcpyToSymbol(cIPC, tIPC, %(ncouplings)i * sizeof(cxtype)));
-    checkCuda(cudaMemcpyToSymbol(cIPD, tIPD, %(nparams)i * sizeof(fptype)));
-#else
-    memcpy( cIPC, tIPC, %(ncouplings)i * sizeof(cxtype) );
-    memcpy( cIPD, tIPD, %(nparams)i * sizeof(fptype) );
-#endif
-
-} 
-
 //--------------------------------------------------------------------------
 
-#ifdef __CUDACC__
-  __global__
-  void sigmaKin_getGoodHel( const fptype* allmomenta, // input: momenta as AOSOA[npagM][npar][4][neppM] with nevt=npagM*neppM
-                            bool* isGoodHel )         // output: isGoodHel[ncomb] - device array
-  {
-    const int nprocesses = 1; // FIXME: assume process.nprocesses == 1
-    fptype meHelSum[nprocesses] = { 0 }; // all zeros
-    fptype meHelSumLast = 0;
-    for ( int ihel = 0; ihel < ncomb; ihel++ )
-    {
-      // NB: calculate_wavefunctions ADDS |M|^2 for a given ihel to the running sum of |M|^2 over helicities for the given event
-      calculate_wavefunctions( ihel, allmomenta, meHelSum[0] );
-      if ( meHelSum[0]!=meHelSumLast ){
-         isGoodHel[ihel] = true;
-         meHelSumLast = meHelSum[0];
-      }
-    }
-  }
-#endif
+template <typename mom_t, typename hel_t, typename ipd_t, 
+          typename ipc_t, typename igh_t, typename ngh_t>
+void sigmaKin_setup(
+    const mom_t& momenta,
+    const hel_t& cHel,
+    const ipd_t& cIPD,
+    const ipc_t& cIPC,
+    igh_t& iGoodHel,
+    ngh_t& nGoodHel,
+    const int& ncomb,
+    const int& league_size,
+    const int& team_size) 
+{
+  Kokkos::View<int*,Kokkos::DefaultExecutionSpace> isGoodHel("isGoodHel",ncomb); // has to be constant index, but should be `ncomb`
 
-  //--------------------------------------------------------------------------
+  using member_type = typename Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type;
+  Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy( league_size, team_size );
+  Kokkos::parallel_for(__func__,policy, 
+  KOKKOS_LAMBDA(member_type team_member){
+    const int ievt = team_member.league_rank() * team_member.team_size() + team_member.team_rank();
 
-#ifdef __CUDACC__
-  void sigmaKin_setGoodHel( const bool* isGoodHel ) // input: isGoodHel[ncomb] - host array
-  {
-    int nGoodHel[1] = { 0 };
-    int goodHel[ncomb] = { 0 };
-    for ( int ihel = 0; ihel < ncomb; ihel++ )
+    const int nprocesses = 1;  // FIXME: assume process.nprocesses == 1
+    double meHelSum[nprocesses] = {0};  // all zeros
+    double meHelSumLast = 0;
+
+    auto evt_mom = Kokkos::subview(momenta,ievt,Kokkos::ALL,Kokkos::ALL);
+    for (int ihel = 0;ihel < ncomb;++ihel)
     {
-      //std::cout << "sigmaKin_setGoodHel ihel=" << ihel << ( isGoodHel[ihel] ? " true" : " false" ) << std::endl;
-      if ( isGoodHel[ihel] )
+      auto local_cHel = Kokkos::subview(cHel,ihel,Kokkos::ALL);
+      calculate_wavefunctions(local_cHel, evt_mom, cIPD, cIPC, meHelSum[0]);
+      if (meHelSum[0] != meHelSumLast)
       {
-        goodHel[nGoodHel[0]] = ihel;
-        nGoodHel[0]++;
+        isGoodHel(ihel) = true;
+        meHelSumLast = meHelSum[0];
       }
     }
-    checkCuda( cudaMemcpyToSymbol( cNGoodHel, nGoodHel, sizeof(int) ) );
-    checkCuda( cudaMemcpyToSymbol( cGoodHel, goodHel, ncomb*sizeof(int) ) );
-  }
-#endif
+  });
 
+  Kokkos::parallel_for(__func__,Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,1),
+  KOKKOS_LAMBDA(const int& i){
+    for(int ihel=0;ihel < ncomb;++ihel){
+
+      if(isGoodHel(ihel)){
+        iGoodHel(nGoodHel(0)) = ihel;
+        nGoodHel(0)++;
+      }
+
+    }
+  });
+}
 
 
 //--------------------------------------------------------------------------
-// Evaluate |M|^2, part independent of incoming flavour. 
+// Evaluate |M|^2, part independent of incoming flavour.
+template <typename mom_t, typename out_t, typename hel_t, typename ipd_t, 
+          typename ipc_t, typename igh_t, typename ngh_t>
+void sigmaKin(const mom_t& momenta, out_t& allMEs, const hel_t& cHel,
+    const ipd_t& cIPD, const ipc_t& cIPC, const igh_t& iGoodHel,
+    const ngh_t& nGoodHel, const int& ncomb, const int& league_size,
+    const int& team_size)
+{
+  using member_type = typename Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type;
+  Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy( league_size, team_size );
+  Kokkos::parallel_for(__func__,policy, 
+  KOKKOS_LAMBDA(member_type team_member){
 
-__global__ void sigmaKin(const fptype * allmomenta, fptype * allMEs
-#ifndef __CUDACC__
-                 , const int nevt          // input: #events (for cuda: nevt == ndim == gpublocks*gputhreads)
-#endif
-) { 
-    // Set the parameters which change event by event
-    // Need to discuss this with Stefan
-    //pars->setDependentParameters();
-    //pars->setDependentCouplings();
+    const int ievt = team_member.league_rank() * team_member.team_size() + team_member.team_rank();
+    
+    // Denominators: spins, colors and identical particles
+    constexpr int nprocesses = 1;  // FIXME: assume process.nprocesses == 1
+    constexpr int denominators[1] = {512};
 
-#ifndef __CUDACC__
-    const int maxtry = 10;
-    static unsigned long long sigmakin_itry = 0; // first iteration over nevt events
-    static bool sigmakin_goodhel[ncomb] = { false };
-#endif
+    // Reset the "matrix elements" - running sums of |M|^2 over helicities for
+    // the given event
+    double meHelSum[nprocesses] = {0};  // all zeros
 
-    // Reset color flows
-    %(reset_jamp_lines)s
+    // using precomputed good helicities
+    auto local_mom = Kokkos::subview(momenta,ievt,Kokkos::ALL,Kokkos::ALL);
+    for (int ighel = 0;ighel < nGoodHel(0);++ighel)
+    {
+      auto local_cHel = Kokkos::subview(cHel,iGoodHel(ighel),Kokkos::ALL);
+      calculate_wavefunctions(local_cHel, local_mom, cIPD, cIPC, meHelSum[0]);
+    }
+    // Get the final |M|^2 as an average over helicities/colors of the running
+    // sum of |M|^2 over helicities for the given event
+    // [NB 'sum over final spins, average over initial spins', eg see
+    // https://www.uzh.ch/cmsssl/physik/dam/jcr:2e24b7b1-f4d7-4160-817e-47b13dbf
+    // 1d7c/Handout_4_2016-UZH.pdf]
+    for (int iproc = 0;iproc < nprocesses; ++iproc)
+    {
+      meHelSum[iproc] /= denominators[iproc];
+    }
 
-    //start sigmakin_lines
-    %(sigmaKin_lines)s
+    // Set the final average |M|^2 for this event in the output array for all
+    // events
+    for (int iproc = 0;iproc < nprocesses; ++iproc)
+    {
+      allMEs[iproc * nprocesses + ievt] = meHelSum[iproc];
+    }
+  });// end parallel for
+
 }
+
 
 //==========================================================================
 // Private class member functions

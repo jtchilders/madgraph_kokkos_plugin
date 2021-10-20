@@ -72,7 +72,7 @@ int main(int argc, char **argv)
   bool debug = false;
   bool perf = false;
   bool json = false;
-  int numiter = 1, league_size = 1, team_size = 1;
+  int niter = 1, league_size = 1, team_size = 1;
   int jsondate = 0;
   int jsonrun = 0;
   int numvec[5] = {0,0,0,0,0};
@@ -121,7 +121,7 @@ int main(int argc, char **argv)
   // initialize Kokkos
   Kokkos::initialize(argc, argv);
 
-  end = clock();
+  clock_end = clock();
   
   double kokkos_init_sec = ((double) (clock_end - clock_start)) / CLOCKS_PER_SEC;
   std::cout << "Kokkkos initialize: " << kokkos_init_sec << " seconds\n";
@@ -159,7 +159,7 @@ int main(int argc, char **argv)
       std::cout << "# iterations: " << niter << std::endl;
 
     // *** START THE NEW TIMERS ***
-    Kokkos::Timer loop_timer,section_timer;
+    Kokkos::Timer total_timer,loop_timer,section_timer;
 
     // === STEP 0 - INITIALISE
 
@@ -168,7 +168,7 @@ int main(int argc, char **argv)
     section_timer.reset();
 
     // Create a process object
-    CPPProcess<Kokkos::DefaultExecutionSpace> process(niter, league_size, team_size);
+    Proc::CPPProcess<Kokkos::DefaultExecutionSpace> process(niter, league_size, team_size);
 
     // Read param_card and set parameters
     process.initProc("../../Cards/param_card.dat");
@@ -185,7 +185,7 @@ int main(int argc, char **argv)
     section_timer.reset();
 
     // random numbers (device-side only)
-    Kokkos::View<double**,Kokkos::DefaultExecutionSpace> devRnarray(Kokkos::ViewAllocateWithoutInitializing("devRnarray"),events_per_iter,4*(process.nexternal - process.ninitial));
+    Kokkos::View<double**,Kokkos::DefaultExecutionSpace> devRnarray(Kokkos::ViewAllocateWithoutInitializing("devRnarray"),nevt,4*(process.nexternal - process.ninitial));
     
     // momenta
     Kokkos::View<double***,Kokkos::DefaultExecutionSpace> devMomenta(Kokkos::ViewAllocateWithoutInitializing("devMomenta"),nevt,process.nexternal,4);
@@ -233,7 +233,9 @@ int main(int argc, char **argv)
     CalcMean<float,unsigned int> tmr_cpyME;
     CalcMean<float,unsigned int> tmr_dumploop;
     CalcMean<float,unsigned int> tmr_iter;
-
+    
+    float time_SGoodHel = 0;
+    
     for (int iiter = 0; iiter < niter; ++iiter)
     {
       //std::cout << "Iteration #" << iiter+1 << " of " << niter << std::endl;
@@ -298,7 +300,7 @@ int main(int argc, char **argv)
       {
         nvtxRangePush("0d_SGoodHel");
         section_timer.reset();
-        sigmaKin_setup(devMomenta, process.cHel, process.cIPD, process.cIPC, devIsGoodHel, devNGoodHel, process.ncomb, league_size, team_size);
+        Proc::sigmaKin_setup(devMomenta, process.cHel, process.cIPD, process.cIPC, devIsGoodHel, devNGoodHel, process.ncomb, league_size, team_size);
         Kokkos::DefaultExecutionSpace().fence();
         time_SGoodHel = section_timer.seconds();
         nvtxRangePop();
@@ -307,7 +309,7 @@ int main(int argc, char **argv)
       // --- 3a. SigmaKin
        nvtxRangePush("3a_SigmaKin");
       section_timer.reset();
-      sigmaKin(devMomenta, devMEs, process.cHel, process.cIPD, process.cIPC, devIsGoodHel, devNGoodHel, process.ncomb, league_size, team_size);//, debug, verbose);
+      Proc::sigmaKin(devMomenta, devMEs, process.cHel, process.cIPD, process.cIPC, devIsGoodHel, devNGoodHel, process.ncomb, league_size, team_size);//, debug, verbose);
       Kokkos::DefaultExecutionSpace().fence();
       tmr_skin.add_value(section_timer.seconds());
       nvtxRangePop();
@@ -342,11 +344,11 @@ int main(int argc, char **argv)
           for (int i = 0; i < process.nexternal; i++)
             std::cout << std::setw(4) << i + 1
                       << setiosflags(std::ios::scientific) << std::setw(14)
-                      << hstMomenta(d,i,0) << setiosflags(std::ios::scientific)
-                      << std::setw(14) << hstMomenta(d,i,1)
+                      << hstMomenta(ievt,i,0) << setiosflags(std::ios::scientific)
+                      << std::setw(14) << hstMomenta(ievt,i,1)
                       << setiosflags(std::ios::scientific) << std::setw(14)
-                      << hstMomenta(d,i,2) << setiosflags(std::ios::scientific)
-                      << std::setw(14) << hstMomenta(d,i,3) << std::endl;
+                      << hstMomenta(ievt,i,2) << setiosflags(std::ios::scientific)
+                      << std::setw(14) << hstMomenta(ievt,i,3) << std::endl;
           std::cout << std::string(80, '-') << std::endl;
         }
         // Display matrix elements
@@ -354,22 +356,22 @@ int main(int argc, char **argv)
           if (verbose)
             std::cout << " Matrix element = "
                       // << setiosflags(ios::fixed) << setprecision(17)
-                      << h_me(i*1 + d) << " GeV^" << meGeVexponent << std::endl;
+                      << hstMEs(i*1 + ievt) << " GeV^" << meGeVexponent << std::endl;
           
-          ave_me.add_value(h_me(i*1 + d));
-          ave_weight.add_value(h_wgt(i*1 + d));
+          ave_me.add_value(hstMEs(i*1 + ievt));
+          ave_weight.add_value(hstWeights(i*1 + ievt));
         }
 
         if (verbose)
           std::cout << std::string(80, '-') << std::endl;
-      }
+      } // end if ievt
 
       if (!(verbose || debug || perf))
           std::cout << ".";
       nvtxRangePop();
       tmr_dumploop.add_value(section_timer.seconds());
       tmr_iter.add_value(loop_timer.seconds());
-    } // end for numiter
+    } // end for niter
     if (!(verbose || debug || perf))
       std::cout << std::endl;
 
@@ -381,7 +383,7 @@ int main(int argc, char **argv)
     // === STEP 8 ANALYSIS
     // --- 8a Analysis: compute stats after the loop
     nvtxRangePush("8a_9a_DumpStat");
-    lptimer.reset();
+    section_timer.reset();
     
     // timer sums
     double tmr_sum_me = tmr_skin.sum() + tmr_cpyME.sum();
@@ -394,13 +396,13 @@ int main(int argc, char **argv)
       printf("**********************************************************************\n");
       printf("NumBlocksPerGrid            = %8d\n",league_size);
       printf("NumThreadsPerBlock          = %8d\n",team_size);
-      printf("NumIterations               = %8d\n",numiter);
+      printf("NumIterations               = %8d\n",niter);
       printf("----------------------------------------------------------------------\n");
       printf("FP Precision                = DOUBLE\n");
       printf("Complex type                = KOKKOS::COMPLEX\n");
       printf("Random number generator     = Kokkos Device Side\n");
       printf("----------------------------------------------------------------------\n");
-      printf("NumberOfEntries             = %8d\n",numiter);
+      printf("NumberOfEntries             = %8d\n",niter);
       printf("TotalTime[Rnd+Rmb+ME] (123) = ( %.6e ) sec\n",tmr_sum_rnd_rmb_me);
       printf("TotalTime[Rambo+ME]    (23) = ( %.6e ) sec\n",tmr_sum_rmb_me);
       printf("TotalTime[RndNumGen]    (1) = ( %.6e ) sec\n",tmr_sum_rnd);
@@ -439,17 +441,18 @@ int main(int argc, char **argv)
       printf("3b_CpDTHmes           = %8.6f +/- %8.6f seconds\n",tmr_cpyME.mean(),tmr_cpyME.sigma());
       printf("4a_DumpLoop           = %8.6f +/- %8.6f seconds\n",tmr_dumploop.mean(),tmr_dumploop.sigma());
 
-      printf("8a_9a_DumpStat        = %8.6f seconds\n",lptimer.seconds());
+      printf("8a_9a_DumpStat        = %8.6f seconds\n",section_timer.seconds());
       printf("**********************************************************************\n");
     }
-if(json){
+    
+    if(json){
       std::stringstream json_fn;
-      json_fn << "./perf/data/" << league_size << "-" << team_size << "-" << numiter 
+      json_fn << "./perf/data/" << league_size << "-" << team_size << "-" << niter 
               << "perf-test-run" << jsonrun << ".json";
 
       std::ofstream fout(json_fn.str());
       fout << "[{\n";
-      fout << "  \"NumberOfEntries\": "         << numiter << ",\n";
+      fout << "  \"NumberOfEntries\": "         << niter << ",\n";
       fout << "  \"NumThreadsPerBlock\": "      << team_size << ",\n";
       fout << "  \"NumBlocksPerGrid\": "        << league_size << ",\n";
       fout << "  \"FP precision\": \"DOUBLE\",\n";
@@ -478,8 +481,9 @@ if(json){
       fout.close();
     }
 
+    printf("kokkos init time      = %10.3f\n",kokkos_init_sec);
     printf("iteration time        = %10.3f +/- %10.3f seconds\n",tmr_iter.mean(),tmr_iter.sigma());
-    printf("total time            = %10.3f seconds\n",total_time.seconds());
+    printf("total time            = %10.3f seconds\n",total_timer.seconds());
   } // end Kokkos View Space
   Kokkos::finalize();
 }
