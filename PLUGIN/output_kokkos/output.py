@@ -6,7 +6,7 @@ import os
 pjoin = os.path.join
 
 
-class MY_CPP_Standalone(export_cpp.ProcessExporterGPU):
+class MY_CPP_Standalone(export_cpp.ProcessExporterCPP):
     # class structure information
     # object
     #  - VirtualExporter(object) [in madgraph/iolibs/export_v4.py]
@@ -19,7 +19,7 @@ class MY_CPP_Standalone(export_cpp.ProcessExporterGPU):
     # check status of the directory. Remove it if already exists
     check = True 
     # Language type: 'v4' for f77/ 'cpp' for C++ output
-    exporter = 'gpu' 
+    exporter = 'gpu'
     # Output type:
     # [Template/dir/None] copy the Template, just create dir  or do nothing 
     output = 'Template'
@@ -92,3 +92,6 @@ class MY_CPP_Standalone(export_cpp.ProcessExporterGPU):
             - the new(or old) matrix element"""
         # irrelevant here since group_mode=False so this function is never called
         return False, matrix_element
+
+    def compile_model(self):
+        return

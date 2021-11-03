@@ -13,7 +13,7 @@ for(int icol=0; icol < ncolor; icol++){
   auto ztemp = complex_t<double>( 0, 0 );
   for(int jcol = 0; jcol < ncolor; jcol++)
     ztemp = ztemp + cf[icol][jcol]*jamp[jcol];
-  meHelSum = meHelSum+ (ztemp*conj(jamp[icol])).real()/denom[icol];
+  matrix = matrix+ (ztemp*conj(jamp[icol])).real()/denom[icol];
 }
 
 // Store the leading color flows for choice of color

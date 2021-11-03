@@ -44,8 +44,8 @@ openmp_exe=ocheck.exe
 openmp_objects=$(FILES:.ext=.openmp.o)
 openmp_libmodel=../../lib/lib$(MODELLIB)_openmp.a
 intel_exe=icheck.exe
-openmp_objects=$(FILES:.ext=.intel.o)
-openmp_libmodel=../../lib/lib$(MODELLIB)_intel.a
+intel_objects=$(FILES:.ext=.intel.o)
+intel_libmodel=../../lib/lib$(MODELLIB)_intel.a
 hip_exe=hcheck.exe
 hip_objects=$(FILES:.ext=.hip.o)
 hip_libmodel=../../lib/lib$(MODELLIB)_hip.a
@@ -83,16 +83,16 @@ hip:
 $(cuda_exe): $(cuda_objects) $(cuda_libmodel)
 	$(NVCC) $(cuda_objects) -o $@ $(CUDA_LDFLAGS) $(cuda_libmodel)
 
-$(openmp_exe): $(openmp_obj) $(openmp_libmodel)
-	$(CXX) $(openmp_obj) -o $@ $(OPENMP_LDFLAGS) $(openmp_libmodel)
+$(openmp_exe): $(openmp_objects) $(openmp_libmodel)
+	$(CXX) $(openmp_objects) -o $@ $(OPENMP_LDFLAGS) $(openmp_libmodel)
 
-$(intel_exe): $(intel_obj) $(intel_libmodel)
-	$(IPCX) $(intel_obj) -o $@ $(INTEL_LDFLAGS) $(intel_libmodel)
+$(intel_exe): $(intel_objects) $(intel_libmodel)
+	$(IPCX) $(intel_objects) -o $@ $(INTEL_LDFLAGS) $(intel_libmodel)
 
-$(hip_exe): $(hip_obj) $(hip_libmodel)
-	$(HIPCC) $(hip_obj) -o $@ $(HIP_LDFLAGS) $(hip_libmodel)
+$(hip_exe): $(hip_objects) $(hip_libmodel)
+	$(HIPCC) $(hip_objects) -o $@ $(HIP_LDFLAGS) $(hip_libmodel)
 
 
 clean:
 	make -C ../../src clean
-	rm -f $(cuda_obj) $(cuda_exe) $(openmp_obj) $(openmp_exe) $(intel_exe) $(intel_obj) $(hip_exe) $(hip_obj)
+	rm -f $(cuda_objects) $(cuda_exe) $(openmp_objects) $(openmp_exe) $(intel_exe) $(intel_objects) $(hip_exe) $(hip_objects)

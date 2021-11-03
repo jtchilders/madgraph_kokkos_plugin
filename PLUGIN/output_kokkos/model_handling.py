@@ -5,6 +5,8 @@ import fractions
 import os
 import logging
 import madgraph.iolibs.helas_call_writers as helas_call_writers
+import madgraph.core.helas_objects as helas_objects
+import madgraph.loop.loop_helas_objects as loop_helas_objects
 import madgraph.iolibs.file_writers as writers
 pjoin = os.path.join
 
@@ -75,38 +77,38 @@ class UFOModelConverterKokkos(export_cpp.UFOModelConverterCPP):
             return replace_dict
 
     
-class GPUFOHelasCallWriter(helas_call_writers.GPUFOHelasCallWriter):
+# class GPUFOHelasCallWriter(helas_call_writers.GPUFOHelasCallWriter):
 
-    def format_coupling(self, call):
-        """Format the coupling so any minus signs are put in front"""
-        return super().format_coupling(call)
+#     def format_coupling(self, call):
+#         """Format the coupling so any minus signs are put in front"""
+#         return super().format_coupling(call)
         
-    def get_external(self, wf, argument):
-        """ formatting for ixxxx/ oxxxx /.... type of function (external ones) """
-        return super().get_external(wf, argument)
+#     def get_external(self, wf, argument):
+#         """ formatting for ixxxx/ oxxxx /.... type of function (external ones) """
+#         return super().get_external(wf, argument)
 
-    def generate_helas_call(self, argument):
-        """Routine for automatic generation of C++ Helas calls
-        according to just the spin structure of the interaction.
+#     def generate_helas_call(self, argument):
+#         """Routine for automatic generation of C++ Helas calls
+#         according to just the spin structure of the interaction.
 
-        First the call string is generated, using a dictionary to go
-        from the spin state of the calling wavefunction and its
-        mothers, or the mothers of the amplitude, to difenrentiate wich call is
-        done.
+#         First the call string is generated, using a dictionary to go
+#         from the spin state of the calling wavefunction and its
+#         mothers, or the mothers of the amplitude, to difenrentiate wich call is
+#         done.
 
-        Then the call function is generated, as a lambda which fills
-        the call string with the information of the calling
-        wavefunction or amplitude. The call has different structure,
-        depending on the spin of the wavefunction and the number of
-        mothers (multiplicity of the vertex). The mother
-        wavefunctions, when entering the call, must be sorted in the
-        correct way - this is done by the sorted_mothers routine.
+#         Then the call function is generated, as a lambda which fills
+#         the call string with the information of the calling
+#         wavefunction or amplitude. The call has different structure,
+#         depending on the spin of the wavefunction and the number of
+#         mothers (multiplicity of the vertex). The mother
+#         wavefunctions, when entering the call, must be sorted in the
+#         correct way - this is done by the sorted_mothers routine.
 
-        Finally the call function is stored in the relevant
-        dictionary, in order to be able to reuse the function the next
-        time a wavefunction with the same Lorentz structure is needed.
-        """
-        return super().generate_helas_call(argument)
+#         Finally the call function is stored in the relevant
+#         dictionary, in order to be able to reuse the function the next
+#         time a wavefunction with the same Lorentz structure is needed.
+#         """
+#         return super().generate_helas_call(argument)
 
 
 class OneProcessExporterKokkos(export_cpp.OneProcessExporterCPP):
@@ -195,7 +197,7 @@ class OneProcessExporterKokkos(export_cpp.OneProcessExporterCPP):
     @staticmethod
     def coeff(ff_number, frac, is_imaginary, Nc_power, Nc_value=3):
         """Returns a nicely formatted string for the coefficients in JAMP lines"""
-    
+        print('OneProcessExporterKokkos')
         total_coeff = ff_number * frac * fractions.Fraction(Nc_value) ** Nc_power
     
         if total_coeff == 1:
@@ -378,6 +380,7 @@ KOKKOS_FUNCTION void calculate_wavefunctions(
             ret_lines.append("complex_t<double> w[mgKokkos::nwf][mgKokkos::nw6];")
 
             helas_calls = self.helas_call_writer.get_matrix_element_calls(self.matrix_elements[0], color_amplitudes[0])
+            logger.debug('helas_calls: %s', helas_calls)
             logger.debug("only one Matrix-element supported?")
             self.couplings2order = self.helas_call_writer.couplings2order
             self.params2order = self.helas_call_writer.params2order

@@ -7,13 +7,19 @@
 #ifndef HelAmps_%(model_name)s_H
 #define HelAmps_%(model_name)s_H
 
-#include <cmath>
 #include "mgKokkosTypes.h"
 
-using namespace std;
-
 namespace %(namespace)s_%(model_name)s {
+
+
 %(function_declarations)s
+
+// --------------------------------------------------------------------------
+
+
+%(function_definitions)s
+
+
 } // end namespace %(namespace)s_%(model_name)s
 
 #endif // HelAmps_%(model_name)s_H

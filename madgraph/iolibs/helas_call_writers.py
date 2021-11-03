@@ -218,11 +218,10 @@ class HelasCallWriter(base_objects.PhysicsObject):
     def get_matrix_element_calls(self, matrix_element):
         """Return a list of strings, corresponding to the Helas calls
         for the matrix element"""
-
         assert isinstance(matrix_element, helas_objects.HelasMatrixElement), \
                   "%s not valid argument for get_matrix_element_calls" % \
                   type(matrix_element)
-
+        
         # Do not reuse the wavefunctions for loop matrix elements
         if isinstance(matrix_element, loop_helas_objects.LoopHelasMatrixElement):
             return self.get_loop_matrix_element_calls(matrix_element)
@@ -258,7 +257,6 @@ class HelasCallWriter(base_objects.PhysicsObject):
     def get_amplitude_calls(self, matrix_element):
         """Return a list of strings, corresponding to the Helas calls
         for the matrix element"""
-        
         assert isinstance(matrix_element, helas_objects.HelasMatrixElement), \
                "%s not valid argument for get_matrix_element_calls" % \
                repr(matrix_element)            

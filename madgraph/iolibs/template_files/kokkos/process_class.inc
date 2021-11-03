@@ -51,7 +51,7 @@ public:
 
   virtual int code() const { return 1; }
 
-  const std::vector<double> &getMasses() const { return mME; }
+  const typename Kokkos::View<double*,ExecSpace>::HostMirror &getMasses() const { return hmME; }
 
   void setInitial(int inid1, int inid2) {
     id1 = inid1;
