@@ -1481,7 +1481,6 @@ class ALOHAWriterForCPP(WriteALOHA):
             self.declaration.add(('list_complex', output))
         
         
-        print('output: ', output, 'name: ',name, 'args: ', args)
         args = ['const ' + x for x in args]
         out.write('%(prefix)s void %(name)s(%(args)s,%(output)s)' % \
                   {'prefix': self.prefix,

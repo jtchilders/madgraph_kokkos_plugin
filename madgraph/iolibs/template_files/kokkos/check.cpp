@@ -73,7 +73,7 @@ int main(int argc, char **argv)
   bool perf = false;
   bool json = false;
   int niter = 1, league_size = 1, team_size = 1;
-  int jsondate = 0;
+  // int jsondate = 0;
   int jsonrun = 0;
   int numvec[5] = {0,0,0,0,0};
   int nnum = 0;
@@ -101,7 +101,7 @@ int main(int argc, char **argv)
     team_size = numvec[1];
     niter = numvec[2];
     if (nnum == 5){
-      jsondate = numvec[3];
+      // jsondate = numvec[3];
       jsonrun = numvec[4];
     }
   } else if (nnum == 1) {
@@ -243,7 +243,6 @@ int main(int argc, char **argv)
       // time each loop
       loop_timer.reset();
       
-
       // === STEP 1 OF 3
 
       nvtxRangePush("1a_1b_1c_RandGen");

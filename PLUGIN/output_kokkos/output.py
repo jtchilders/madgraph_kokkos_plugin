@@ -82,7 +82,6 @@ class MY_CPP_Standalone(export_cpp.ProcessExporterCPP):
            cmdhistory is the list of command used so far.
            MG5options are all the options of the main interface
            outputflags is a list of options provided when doing the output command"""
-        misc.sprint("pass here")
         return super(MY_CPP_Standalone, self).finalize(matrix_element, cmdhistory, MG5options, outputflag)
 
     def modify_grouping(self, matrix_element):
