@@ -431,9 +431,9 @@ int main(int argc, char **argv)
 
       printf("**********************************************************************\n");
       printf("NumMatrixElements(notNan)   = %8d\n",nevtALL);
-      printf("MeanMatrixElemValue         = ( %.6e +- %.6e ) GeV^%d\n",ave_me.mean(),ave_me.sigma(),meGeVexponent);
+      printf("MeanMatrixElemValue         = ( %.6e +- %.6e ) GeV^%d\n",ave_me.mean(),ave_me.sigma()/sqrt(nevtALL),meGeVexponent);
       printf("[Min,Max]MatrixElemValue    = [ %.6e , %.6e ]  GeV^%d\n",ave_me.min(),ave_me.max(),meGeVexponent);
-      printf("StdDevMatrixElemValue       = ( %.6e ) GeV^%d\n",ave_me.sigma()/sqrt(nevtALL),meGeVexponent);
+      printf("StdDevMatrixElemValue       = ( %.6e ) GeV^%d\n",ave_me.sigma(),meGeVexponent);
       printf("MeanWeight                  = ( %.6e +- %.6e ) GeV^%d\n",ave_weight.mean(),ave_weight.sigma(),meGeVexponent);
       printf("[Min,Max]Weight             = [ %.6e , %.6e ]  GeV^%d\n",ave_weight.min(),ave_weight.max(),meGeVexponent);
       printf("StdDevWeight                = ( %.6e ) GeV^%d\n",ave_weight.sigma()/sqrt(nevtALL),meGeVexponent);
