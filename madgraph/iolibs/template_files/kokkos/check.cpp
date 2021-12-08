@@ -186,7 +186,10 @@ int main(int argc, char **argv)
 
     // random numbers (device-side only)
     Kokkos::View<double**,Kokkos::DefaultExecutionSpace> devRnarray(Kokkos::ViewAllocateWithoutInitializing("devRnarray"),nevt,4*(process.nexternal - process.ninitial));
-    
+#ifdef FIXED_RANDOM
+    auto hstRnarray = Kokkos::create_mirror_view(devRnarray);
+#endif
+
     // momenta
     Kokkos::View<double***,Kokkos::DefaultExecutionSpace> devMomenta(Kokkos::ViewAllocateWithoutInitializing("devMomenta"),nevt,process.nexternal,4);
     auto hstMomenta = Kokkos::create_mirror_view(devMomenta);
@@ -247,8 +250,18 @@ int main(int argc, char **argv)
 
       nvtxRangePush("1a_1b_1c_RandGen");
       section_timer.reset();
-
+#ifdef FIXED_RANDOM
+      srand(123);
+      
+      for(int ii=0;ii<nevt;++ii){
+        for(int jj=0;jj < 4*(process.nexternal - process.ninitial);++jj){
+          hstRnarray(ii,jj) = static_cast<double>(rand()) / (double)RAND_MAX;
+      }}
+      
+      Kokkos::deep_copy(devRnarray,hstRnarray);
+#else
       fill_random_numbers_2d(devRnarray,nevt,4*(process.nexternal - process.ninitial), rand_pool, league_size, team_size);
+#endif
       Kokkos::DefaultExecutionSpace().fence();
       tmr_rand.add_value(section_timer.seconds());
       nvtxRangePop();
